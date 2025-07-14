@@ -143,23 +143,23 @@ function validateHistoryBreakdowns(text) {
 
 //---Legal Review ---
 function validateLegalSummary(text) {
-  const sections = ['**Legal Topic**', '**Jurisdiction**', '**Key Statutes/Precedents**', '**Summary**', '**Caution/Disclaimer**'];
+  const sections = ['**Topic**', '**Jurisdiction**', '**Summary**', '**Disclaimer**'];
   const found = sections.filter(section => text.includes(section));
-  return {
-    valid: found.length === sections.length,
-    error: found.length < sections.length
-      ? `Missing legal sections: ${sections.filter(s => !text.includes(s)).join(', ')}`
-      : null
-  };
-}
-// ✅ responseValidator.js (Add to validateResponse)
-function validateLegalSummary(text) {
-  const matches = [...text.matchAll(/\*\*Topic\*\*:.*?\*\*Disclaimer\*\*:/gs)];
-  return {
-    valid: matches.length >= 2,
-    foundCards: matches.length,
-    error: matches.length < 2
-      ? `Expected 2+ legal summary cards, found ${matches.length}.`
-      : null
-  };
+  const cardCount = (text.match(/\*\*Topic\*\*/g) || []).length;
+
+  if (cardCount < 2) {
+      return {
+          valid: false,
+          error: `Expected 2+ legal summary cards, found ${cardCount}.`
+      };
+  }
+
+  if (found.length < sections.length) {
+      return {
+          valid: false,
+          error: `Missing legal sections: ${sections.filter(s => !text.includes(s)).join(', ')}`
+      };
+  }
+  
+  return { valid: true };
 }
