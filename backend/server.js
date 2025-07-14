@@ -1,4 +1,3 @@
-// ✅ server.js — Main Entry Point
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -35,6 +34,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type'],
   credentials: true,
 }));
+
+// ✅ Handle preflight requests
+app.options('*', cors());
 
 // ✅ Middleware
 app.use(express.json());
