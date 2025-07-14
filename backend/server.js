@@ -8,6 +8,13 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const allowedOrigins = [
+  'https://klerity-chat.firebaseapp.com',
+  'https://klerity-chat.web.app', // Optional: covers both Firebase domains
+  'http://localhost:5173',        // For local dev
+];
+
+
 // ✅ Load env file
 dotenv.config({ path: path.resolve(__dirname, '.env-klerity') });
 
@@ -21,10 +28,16 @@ app.options('*', cors());
 
 // ✅ CORS Setup
 app.use(cors({
-  origin: '*',
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
-  
+  credentials: true,
 }));
 
 // ✅ Middleware
