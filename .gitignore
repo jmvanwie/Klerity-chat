@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Environment files for frontend and backend
+.env
+.env.*
+.env-klerity
