@@ -5,8 +5,40 @@ import { performSearch } from '../utils/searchTool.js'; // Optional: if using re
 // No changes to initialization
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_KEY);
 
-// --- 💡 NEW HELPER FUNCTION: Sleep for a specified duration ---
+// --- HELPER FUNCTION: Sleep for a specified duration ---
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// --- 💡 NEW HELPER FUNCTION: Logic to call the AI model with retries ---
+const callGenerativeModel = async (modelName, systemInstruction, history, finalMessage) => {
+    const model = genAI.getGenerativeModel({ 
+        model: modelName,
+        systemInstruction: systemInstruction,
+    });
+
+    const chat = model.startChat({ history });
+    const maxRetries = 3;
+    let lastError = null;
+
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            const result = await chat.sendMessage(finalMessage); 
+            const response = await result.response;
+            const text = response.text();
+            return { response: text }; // Success, return response
+        } catch (err) {
+            lastError = err;
+            if (err.status === 503) {
+                console.warn(`⚠️ Model ${modelName}: Attempt ${i + 1} failed with 503. Retrying in ${i + 1} second(s)...`);
+                await sleep((i + 1) * 1000);
+            } else {
+                throw err; // Not a retriable error
+            }
+        }
+    }
+    // If all retries failed, throw the last error
+    throw lastError;
+};
+
 
 export const handleChat = async (req, res) => {
   try {
@@ -64,41 +96,34 @@ User Request: "${userMessage}"`;
       finalMessage = `Use the following real-time info to answer the question.\n\n**Live Data:**\n${searchResults}\n\n**Instructions & User's Query:**\n${finalMessage}`;
     }
 
-    const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
-        systemInstruction: systemInstruction,
-    });
-
-    const chat = model.startChat({ history });
-
-    // --- 💡 NEW RETRY LOGIC ---
-    const maxRetries = 3;
-    let lastError = null;
-
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            const result = await chat.sendMessage(finalMessage); 
-            const response = await result.response;
-            const text = response.text();
-            return res.json({ response: text }); // Success, send response and exit
-        } catch (err) {
-            lastError = err;
-            // Check if it's a 503 error, otherwise fail immediately
-            if (err.status === 503) {
-                console.warn(`⚠️ Attempt ${i + 1} failed with 503. Retrying in ${i + 1} second(s)...`);
-                await sleep((i + 1) * 1000); // Wait 1s, then 2s, then 3s
-            } else {
-                // Not a retriable error, so break the loop
-                throw err; 
+    // --- 💡 NEW FALLBACK LOGIC ---
+    try {
+        // First, try the primary model
+        console.log("Attempting to use primary model: gemini-1.5-flash");
+        const result = await callGenerativeModel("gemini-1.5-flash", systemInstruction, history, finalMessage);
+        return res.json(result);
+    } catch (err) {
+        // If the primary model fails with a 503 error after all retries, try the fallback
+        if (err.status === 503) {
+            console.error("❌ Primary model failed after all retries. Switching to fallback model.");
+            try {
+                // Now, try the fallback model
+                console.log("Attempting to use fallback model: gemini-1.0-pro");
+                const fallbackResult = await callGenerativeModel("gemini-1.0-pro", systemInstruction, history, finalMessage);
+                return res.json(fallbackResult);
+            } catch (fallbackErr) {
+                // If the fallback also fails, then we report the final error
+                throw fallbackErr;
             }
+        } else {
+            // If the error was not a 503, throw it immediately
+            throw err;
         }
     }
-    // If all retries failed, throw the last error caught
-    throw lastError;
-    // --- End of Retry Logic ---
+    // --- End of Fallback Logic ---
 
   } catch (err) {
-    console.error("❌ Backend Error after retries:", err);
-    res.status(500).json({ error: 'Failed to process your request after multiple attempts.' });
+    console.error("❌ Backend Error after all fallbacks:", err);
+    res.status(500).json({ error: 'The AI service is currently unavailable. Please try again later.' });
   }
 };
