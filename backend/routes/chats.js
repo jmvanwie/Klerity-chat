@@ -1,3 +1,4 @@
+
 // ✅ routes/chat.js — Route for chat
 import express from 'express';
 import { handleChat } from '../controllers/aiController.js';
