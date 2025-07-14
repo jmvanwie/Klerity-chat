@@ -2,9 +2,10 @@ export default {
   name: 'Recipe Recommendations',
   tags: ['recipe', 'dinner', 'meal', 'cook', 'ingredients'],
   metaPrompt: `**Task: Recipe Recommendations**
-- **Non-negotiable format:** Present each recipe as a self-contained card.
-- **Structure:** Each card MUST have these exact bolded headings: **Recipe Title**, **Health Benefit**, **Ingredients**, **Instructions**.
-- **Action First:** Do not ask for preferences first. Immediately provide 2-3 diverse recipe cards.
-- **Follow-up:** After providing the recipes, you may ask a single follow-up question about preferences.`,
+- **MANDATORY FORMAT:** Output must consist solely of structured recipe cards — freeform responses are not allowed.  
+- Each card MUST include the following **bolded headings** in this exact order:  
+  **Recipe Title**, **Health Benefit**, **Ingredients**, **Instructions**  
+- Provide 2–3 diverse recipe cards immediately. Do not ask user preferences first.  
+- After presenting the recipes, you may ask one follow-up question to refine future suggestions.`,
   examples: ['What are some healthy dinner recipes?', 'I need a quick meal idea.']
 };
