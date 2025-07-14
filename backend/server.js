@@ -1,4 +1,4 @@
-// ✅ server.js — Main Entry Point
+/ ✅ server.js — Main Entry Point
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -16,35 +16,25 @@ import chatRouter from './routes/chat.js';
 const app = express();
 const port = process.env.PORT || 3001;
 
-// ✅ Allowed Origins
+// ✅ CORS Setup (MUST come before routes)
 const allowedOrigins = [
   'https://klerity-chat.firebaseapp.com',
   'https://klerity-chat.web.app',
   'http://localhost:5173'
 ];
 
-// ✅ CORS Middleware
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      callback(new Error(`CORS blocked origin: ${origin}`));
+      callback(new Error('Not allowed by CORS'));
     }
   },
-  credentials: true,
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
+  credentials: true,
 }));
-
-// ✅ Manual Preflight Response (IMPORTANT!)
-app.options('*', (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  return res.sendStatus(200);
-});
 
 // ✅ Middleware
 app.use(express.json());
