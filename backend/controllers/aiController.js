@@ -8,7 +8,7 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_KEY);
 // --- HELPER FUNCTION: Sleep for a specified duration ---
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- 💡 NEW HELPER FUNCTION: Logic to call the AI model with retries ---
+// --- HELPER FUNCTION: Logic to call the AI model with retries ---
 const callGenerativeModel = async (modelName, systemInstruction, history, finalMessage) => {
     const model = genAI.getGenerativeModel({ 
         model: modelName,
@@ -67,19 +67,20 @@ export const handleChat = async (req, res) => {
     if (hasSpecificInstructions) {
         let specificReminder = '';
         if (systemInstruction.toLowerCase().includes('recipe recommendations')) {
+            // 💡 FINAL CHANGE: Explicitly command the use of newline characters (\n)
             specificReminder = `
-You MUST present the answer using the following self-contained card format for each recipe. This is non-negotiable.
+You MUST present the answer using the following self-contained card format for each recipe. This is non-negotiable. Use '\\n' for all line breaks to ensure proper formatting.
 
-**Recipe Title**: [Title of the Recipe]
-**Health Benefit**: [Brief, clear health benefit]
-**Ingredients**:
-- [Ingredient 1]
-- [Ingredient 2]
-**Instructions**:
-1. [Step 1]
-2. [Step 2]
+**Recipe Title**: [Title of the Recipe]\\n
+**Health Benefit**: [Brief, clear health benefit]\\n
+**Ingredients**:\\n
+- [Ingredient 1]\\n
+- [Ingredient 2]\\n
+**Instructions**:\\n
+1. [Step 1]\\n
+2. [Step 2]\\n
 
-Now, generate 2-3 diverse recipe cards based on the user's request using this exact structure. Do not deviate from this format.`;
+Now, generate 2-3 diverse recipe cards based on the user's request. Ensure all bolding and line breaks (\\n) are present in the final text output.`;
         }
         
         finalMessage = `Strictly follow the persona and rules in the system prompt. ${specificReminder}
@@ -96,7 +97,7 @@ User Request: "${userMessage}"`;
       finalMessage = `Use the following real-time info to answer the question.\n\n**Live Data:**\n${searchResults}\n\n**Instructions & User's Query:**\n${finalMessage}`;
     }
 
-    // --- 💡 NEW FALLBACK LOGIC ---
+    // --- FALLBACK LOGIC ---
     try {
         // First, try the primary model
         console.log("Attempting to use primary model: gemini-1.5-flash");
