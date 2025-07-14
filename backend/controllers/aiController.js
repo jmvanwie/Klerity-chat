@@ -1,4 +1,5 @@
 // ✅ controllers/aiController.js — Logic to handle AI messages
+// Forcing a Git update
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { performSearch } from '../utils/searchTool.js'; // Optional: if using real-time search
 
