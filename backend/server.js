@@ -21,7 +21,7 @@ app.use(cors({
   origin: ['https://klerity-chat.web.app', 'https://klerity-chat.firebaseapp.com'],
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
-  credentials: false
+  
 }));
 
 // ✅ Handle preflight
