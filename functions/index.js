@@ -1,7 +1,15 @@
-const functions = require("firebase-functions");
-const axios = require("axios");
+import express from "express";
+import dotenv from "dotenv";
+import cors from "cors";
+import axios from "axios";
 
-// --- YOUR ORIGINAL PROMPT ENGINEERING LOGIC (with one small fix) ---
+dotenv.config();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// --- REVISED PROMPT ENGINEERING LOGIC ---
 const taskModules = {
     recipes: `**Task: Recipe Recommendations**\n- **Non-negotiable format:** Present each recipe as a self-contained card.\n- **Structure:** Each card MUST have these exact bolded headings: **Recipe Title**, **Health Benefit**, **Ingredients**, **Instructions**.\n- **Action First:** Do not ask for preferences first. Immediately provide 2-3 diverse recipe cards.\n- **Follow-up:** After providing the recipes, you may ask a single follow-up question about preferences.`,
     finance: `**Task: Market Trends & Finance**\n- Summarize current or historical trends using simple, accessible language.\n- Include relevant metrics (e.g., inflation rates, price changes, volume trends, stock movements).\n- When possible, incorporate charts or bullet-point breakdowns.\n- Analyze buyer behavior and volume patterns using publicly available data.\n- Provide predictive insights based on historical performance, macroeconomic indicators, or statistical trend models.\n- Compare simple investment strategies (e.g., index funds, growth stocks, bonds) when relevant.\n- Mention basic risk profiles (low, moderate, high) to help users understand potential outcomes.\n- Explain “why it matters” in the context of personal finance or investment strategy.`,
@@ -42,42 +50,35 @@ function detectPromptType(message) {
 function composePrompt(userMessage) {
   const taskType = detectPromptType(userMessage);
   const taskInstructions = taskModules[taskType] || taskModules.default;
-  const coreDirectives = `You are Klerity.ai — a highly intelligent, articulate, and compassionate AI assistant...`; // Your full core directives
+  const coreDirectives = `You are Klerity.ai — a highly intelligent, articulate, and compassionate AI assistant. Your job is to help users solve questions using structured, helpful content across domains like recipes, finance, homework, science, philosophy, and more.`;
   return `${coreDirectives}\n\n${taskInstructions}\n\n---\n\nUSER QUERY: ${userMessage}`;
 }
 
-exports.callGoogleApi = functions.https.onCall(async (data, context) => {
-    const apiKey = process.env.GOOGLE_KEY;
-    if (!apiKey) {
-        throw new functions.https.HttpsError("internal", "API key not configured.");
-    }
+app.post("/api/chat", async (req, res) => {
+  const userMessage = req.body.message;
+  const apiKey = process.env.VITE_API_KEY;
 
-    const geminiApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+  console.log("API Key:", apiKey);
+  const prompt = composePrompt(userMessage);
+  console.log("Prompt:", prompt);
 
-    // The only thing we need from the website is the raw user message.
-    const userMessage = data.message;
-    if (!userMessage) {
-        throw new functions.https.HttpsError("invalid-argument", "The function must be called with a 'message' argument.");
-    }
+  if (!apiKey) {
+    return res.status(500).json({ status: "error", message: "API key not configured." });
+  }
 
-    // Generate the full prompt using YOUR proven logic.
-    const finalPrompt = composePrompt(userMessage);
+  try {
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+      { contents: [{ role: "user", parts: [{ text: prompt }] }] }
+    );
 
-    // Your original logic doesn't use chat history, so we send only the new, full prompt.
-    const contents = [{ role: 'user', parts: [{ text: finalPrompt }] }];
-    const requestBody = { contents };
-
-    try {
-        const response = await axios.post(geminiApiUrl, requestBody);
-
-        if (!response.data.candidates || response.data.candidates.length === 0) {
-            throw new Error("The AI returned no response candidates.");
-        }
-        const modelResponseText = response.data.candidates[0].content.parts[0].text;
-        return { status: "success", response: modelResponseText };
-
-    } catch (error) {
-        console.error("Error calling Google AI API:", error.response ? error.response.data : error.message);
-        throw new functions.https.HttpsError("internal", "The AI service failed to respond.");
-    }
+    const text = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    res.json({ status: "success", response: text || "No content returned." });
+  } catch (error) {
+    console.error("Gemini API error:", error.response?.data || error.message);
+    res.status(500).json({ status: "error", message: "The AI service failed to respond." });
+  }
 });
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

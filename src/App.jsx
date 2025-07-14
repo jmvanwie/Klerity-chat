@@ -5,18 +5,9 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Icon } from './components/Icon.jsx';
 import { ICONS } from './constants/icons';
-import { initializeApp } from "firebase/app";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyD1GDAiLCM7wOuKIOmAm5Iec0WPaiNWwew",
-  authDomain: "klerity-chat.firebaseapp.com",
-  projectId: "klerity-chat",
-  storageBucket: "klerity-chat.firebasestorage.app",
-  messagingSenderId: "615552438440",
-  appId: "1:615552438440:web:c6b47def57a78756cef29d",
-};
-
-initializeApp(firebaseConfig);
+import { db } from './firebase'; // ✅ only use this for db
+import { collection, getDocs } from 'firebase/firestore';
 
 // --- Dynamic Prompt Logic ---
 const taskModules = {
@@ -206,6 +197,22 @@ function ChatView({ chatHistory, isLoading, onSendMessage, currentUser }) {
 
   const isNewChat = chatHistory.length === 1 && chatHistory[0].role === 'model';
 
+   useEffect(() => {
+  const testFirestore = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "testCollection")); // 👈 Use your collection name
+      querySnapshot.forEach((doc) => {
+        console.log(`${doc.id} =>`, doc.data());
+      });
+      console.log("✅ Firestore read successful");
+    } catch (error) {
+      console.error("❌ Firestore read failed:", error);
+    }
+  };
+
+  testFirestore();
+}, []);
+
   return (
     <div className="flex-1 flex flex-col bg-gray-800 h-full">
       <main className="flex-grow overflow-y-auto p-4 md:p-8">
@@ -379,4 +386,5 @@ export default function App() {
       </div>
     </div>
   );
+ 
 }
