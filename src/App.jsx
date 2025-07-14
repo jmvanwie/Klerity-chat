@@ -617,7 +617,7 @@ export default function App() {
     const messageWithPrompt = `${metaPrompt}\n\n---\n\nUSER QUERY: ${message}`;
 
     try {
-      const res = await fetch('http://localhost:3001/api/chat', {
+      const res = await fetch('https://klerity-chat.onrender.com', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
