@@ -57,7 +57,7 @@ export const handleChat = async (req, res) => {
         systemInstruction = promptParts[0];
         userMessage = promptParts[1];
     } else {
-        userMessage = combinedMessage;
+        userMessage = combined.message;
     }
     
     // --- Create a more forceful prompt with a one-shot example ---
@@ -67,20 +67,29 @@ export const handleChat = async (req, res) => {
     if (hasSpecificInstructions) {
         let specificReminder = '';
         if (systemInstruction.toLowerCase().includes('recipe recommendations')) {
-            // 💡 FINAL CHANGE: Explicitly command the use of newline characters (\n)
+            // 💡 FINAL ATTEMPT: The most direct instruction possible.
             specificReminder = `
-You MUST present the answer using the following self-contained card format for each recipe. This is non-negotiable. Use '\\n' for all line breaks to ensure proper formatting.
+You will provide 2-3 recipes. Your entire response MUST follow the exact format of the example below. Do NOT include any introductory text, concluding text, or any other conversational text. Your output must be ONLY a series of recipe cards. This is a non-negotiable rule.
 
-**Recipe Title**: [Title of the Recipe]\\n
-**Health Benefit**: [Brief, clear health benefit]\\n
-**Ingredients**:\\n
-- [Ingredient 1]\\n
-- [Ingredient 2]\\n
-**Instructions**:\\n
-1. [Step 1]\\n
-2. [Step 2]\\n
+--- EXAMPLE START ---
+**Recipe Title**: Lemon Herb Roasted Chicken
+**Health Benefit**: An excellent source of lean protein, which is crucial for muscle repair and growth.
+**Ingredients**:
+- 1 whole chicken (about 4 lbs)
+- 1 lemon, halved
+- 4 sprigs of fresh rosemary
+- 4 sprigs of fresh thyme
+- 2 tablespoons olive oil
+- Salt and black pepper to taste
+**Instructions**:
+1. Preheat oven to 425°F (220°C).
+2. Pat the chicken dry with paper towels. Place herbs and lemon halves inside the chicken cavity.
+3. Rub the outside of the chicken with olive oil and season generously with salt and pepper.
+4. Roast for 1 hour to 1 hour 15 minutes, or until the juices run clear.
+5. Let it rest for 10 minutes before carving.
+--- EXAMPLE END ---
 
-Now, generate 2-3 diverse recipe cards based on the user's request. Ensure all bolding and line breaks (\\n) are present in the final text output.`;
+Now, generate the response for the user's request using this exact structure.`;
         }
         
         finalMessage = `Strictly follow the persona and rules in the system prompt. ${specificReminder}
