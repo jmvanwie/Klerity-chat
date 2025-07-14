@@ -4,7 +4,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // --- Import your new utility modules ---
 import { formatRules } from '../utils/formatRules.js';
 import { buildSystemPrompt } from '../utils/systemPromptBuilder.js';
-import { buildFinalMessage } from '../utils/messageBuilder.js';
+// ✅ FIX: Corrected the import path to be all lowercase to match the actual filename.
+import { buildFinalMessage } from '../utils/messagebuilder.js'; 
 import { validateResponse } from '../utils/responseValidator.js';
 
 // No changes to initialization
@@ -14,7 +15,6 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_KEY);
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // --- HELPER FUNCTION: Logic to call the AI model with retries ---
-// This function remains the same, it's already robust.
 const callGenerativeModel = async (modelName, systemInstruction, history, finalMessage) => {
     const model = genAI.getGenerativeModel({ 
         model: modelName,
@@ -54,7 +54,7 @@ export const handleChat = async (req, res) => {
       return res.status(400).json({ error: 'Missing message or taskTypeKey in request.' });
     }
 
-    // --- 💡 NEW MODULAR LOGIC ---
+    // --- NEW MODULAR LOGIC ---
     
     // 1. Build the System Prompt using the new builder and format rules
     const instructions = formatRules[taskTypeKey] || '';
@@ -80,7 +80,7 @@ export const handleChat = async (req, res) => {
         }
     }
     
-    // --- 💡 NEW: Validate the response ---
+    // --- NEW: Validate the response ---
     const validation = validateResponse(taskTypeKey, result.response);
     if (!validation.valid) {
         console.warn(`⚠️ Validation FAILED for task [${taskTypeKey}]: ${validation.error}`);
