@@ -1,6 +1,11 @@
-// ✅ controllers/aiController.js — Logic to handle AI messages
+// ✅ controllers/aiController.js — Refactored to use modular utilities
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { performSearch } from '../utils/searchTool.js'; // Optional: if using real-time search
+
+// --- Import your new utility modules ---
+import { formatRules } from '../utils/formatRules.js';
+import { buildSystemPrompt } from '../utils/systemPromptBuilder.js';
+import { buildFinalMessage } from '../utils/messageBuilder.js';
+import { validateResponse } from '../utils/responseValidator.js';
 
 // No changes to initialization
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_KEY);
@@ -9,6 +14,7 @@ const genAI = new GoogleGenerativeAI(process.env.GOOGLE_KEY);
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // --- HELPER FUNCTION: Logic to call the AI model with retries ---
+// This function remains the same, it's already robust.
 const callGenerativeModel = async (modelName, systemInstruction, history, finalMessage) => {
     const model = genAI.getGenerativeModel({ 
         model: modelName,
@@ -35,103 +41,56 @@ const callGenerativeModel = async (modelName, systemInstruction, history, finalM
             }
         }
     }
-    // If all retries failed, throw the last error
     throw lastError;
 };
 
 
 export const handleChat = async (req, res) => {
   try {
-    const { history = [], message: combinedMessage } = req.body;
+    // ✅ Destructure the new taskTypeKey from the request body
+    const { history = [], message, taskTypeKey } = req.body;
 
-    if (!combinedMessage) {
-      return res.status(400).json({ error: 'Missing message in request.' });
+    if (!message || !taskTypeKey) {
+      return res.status(400).json({ error: 'Missing message or taskTypeKey in request.' });
     }
 
-    // --- Separate System Instructions from User Message ---
-    const promptParts = combinedMessage.split('\n\n---\n\n');
-    let systemInstruction = '';
-    let userMessage = '';
-
-    if (promptParts.length > 1) {
-        systemInstruction = promptParts[0];
-        userMessage = promptParts[1];
-    } else {
-        // ✅ FIX: Changed 'combined.message' to 'combinedMessage'
-        userMessage = combinedMessage;
-    }
+    // --- 💡 NEW MODULAR LOGIC ---
     
-    // --- Create a more forceful prompt with a one-shot example ---
-    let finalMessage = userMessage; 
-    const hasSpecificInstructions = systemInstruction.toLowerCase().includes('**task:');
+    // 1. Build the System Prompt using the new builder and format rules
+    const instructions = formatRules[taskTypeKey] || '';
+    const systemInstruction = buildSystemPrompt(taskTypeKey, instructions);
 
-    if (hasSpecificInstructions) {
-        let specificReminder = '';
-        if (systemInstruction.toLowerCase().includes('recipe recommendations')) {
-            // 💡 FINAL ATTEMPT: The most direct instruction possible.
-            specificReminder = `
-You will provide 2-3 recipes. Your entire response MUST follow the exact format of the example below. Do NOT include any introductory text, concluding text, or any other conversational text. Your output must be ONLY a series of recipe cards. This is a non-negotiable rule.
-
---- EXAMPLE START ---
-**Recipe Title**: Lemon Herb Roasted Chicken
-**Health Benefit**: An excellent source of lean protein, which is crucial for muscle repair and growth.
-**Ingredients**:
-- 1 whole chicken (about 4 lbs)
-- 1 lemon, halved
-- 4 sprigs of fresh rosemary
-- 4 sprigs of fresh thyme
-- 2 tablespoons olive oil
-- Salt and black pepper to taste
-**Instructions**:
-1. Preheat oven to 425°F (220°C).
-2. Pat the chicken dry with paper towels. Place herbs and lemon halves inside the chicken cavity.
-3. Rub the outside of the chicken with olive oil and season generously with salt and pepper.
-4. Roast for 1 hour to 1 hour 15 minutes, or until the juices run clear.
-5. Let it rest for 10 minutes before carving.
---- EXAMPLE END ---
-
-Now, generate the response for the user's request using this exact structure.`;
-        }
-        
-        finalMessage = `Strictly follow the persona and rules in the system prompt. ${specificReminder}
-
-User Request: "${userMessage}"`;
-    }
+    // 2. Build the Final Message to send to the AI
+    const finalMessage = buildFinalMessage(taskTypeKey, message);
     
-    // Optional: Real-time search logic
-    const searchKeywords = ["news", "latest", "reports", "uap", "sightings", "events"];
-    const needsSearch = searchKeywords.some(k => userMessage.toLowerCase().includes(k));
+    // --- End of New Logic ---
 
-    if (needsSearch) {
-      const searchResults = await performSearch(userMessage);
-      finalMessage = `Use the following real-time info to answer the question.\n\n**Live Data:**\n${searchResults}\n\n**Instructions & User's Query:**\n${finalMessage}`;
-    }
-
-    // --- FALLBACK LOGIC ---
+    // --- FALLBACK LOGIC (Now uses the modular prompts) ---
+    let result;
     try {
-        // First, try the primary model
-        console.log("Attempting to use primary model: gemini-1.5-flash");
-        const result = await callGenerativeModel("gemini-1.5-flash", systemInstruction, history, finalMessage);
-        return res.json(result);
+        console.log(`Attempting to use primary model: gemini-1.5-flash for task: ${taskTypeKey}`);
+        result = await callGenerativeModel("gemini-1.5-flash", systemInstruction, history, finalMessage);
     } catch (err) {
-        // If the primary model fails with a 503 error after all retries, try the fallback
         if (err.status === 503) {
-            console.error("❌ Primary model failed after all retries. Switching to fallback model.");
-            try {
-                // Now, try the fallback model
-                console.log("Attempting to use fallback model: gemini-1.0-pro");
-                const fallbackResult = await callGenerativeModel("gemini-1.0-pro", systemInstruction, history, finalMessage);
-                return res.json(fallbackResult);
-            } catch (fallbackErr) {
-                // If the fallback also fails, then we report the final error
-                throw fallbackErr;
-            }
+            console.error("❌ Primary model failed. Switching to fallback model.");
+            console.log(`Attempting to use fallback model: gemini-1.0-pro for task: ${taskTypeKey}`);
+            result = await callGenerativeModel("gemini-1.0-pro", systemInstruction, history, finalMessage);
         } else {
-            // If the error was not a 503, throw it immediately
-            throw err;
+            throw err; // Re-throw non-retriable errors
         }
     }
-    // --- End of Fallback Logic ---
+    
+    // --- 💡 NEW: Validate the response ---
+    const validation = validateResponse(taskTypeKey, result.response);
+    if (!validation.valid) {
+        console.warn(`⚠️ Validation FAILED for task [${taskTypeKey}]: ${validation.error}`);
+        // For now, we log the error but still send the response.
+        // In the future, you could retry or send a different message.
+    } else {
+        console.log(`✅ Validation PASSED for task [${taskTypeKey}].`);
+    }
+
+    return res.json(result);
 
   } catch (err) {
     console.error("❌ Backend Error after all fallbacks:", err);
