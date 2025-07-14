@@ -152,3 +152,14 @@ function validateLegalSummary(text) {
       : null
   };
 }
+// ✅ responseValidator.js (Add to validateResponse)
+function validateLegalSummary(text) {
+  const matches = [...text.matchAll(/\*\*Topic\*\*:.*?\*\*Disclaimer\*\*:/gs)];
+  return {
+    valid: matches.length >= 2,
+    foundCards: matches.length,
+    error: matches.length < 2
+      ? `Expected 2+ legal summary cards, found ${matches.length}.`
+      : null
+  };
+}
