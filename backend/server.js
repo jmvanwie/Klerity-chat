@@ -8,25 +8,19 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const allowedOrigins = [
-  'https://klerity-chat.firebaseapp.com',
-  'https://klerity-chat.web.app', // Optional: covers both Firebase domains
-  'http://localhost:5173',        // For local dev
-];
-
-
 // ✅ Load env file
 dotenv.config({ path: path.resolve(__dirname, '.env-klerity') });
 
-import chatRouter from './routes/chat.js';
+const allowedOrigins = [
+  'https://klerity-chat.firebaseapp.com',
+  'https://klerity-chat.web.app',
+  'http://localhost:5173'
+];
 
 const app = express();
 const port = process.env.PORT || 3001;
 
-// ✅ Handle preflight
-app.options('*', cors());
-
-// ✅ CORS Setup
+// ✅ CORS Middleware (must come before routes)
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
@@ -40,10 +34,14 @@ app.use(cors({
   credentials: true,
 }));
 
+// ✅ Handle preflight
+app.options('*', cors());
+
 // ✅ Middleware
 app.use(express.json());
 
 // ✅ Routes
+import chatRouter from './routes/chat.js';
 app.use('/api/chat', chatRouter);
 
 // ✅ Health Check
