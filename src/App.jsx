@@ -9,6 +9,7 @@ import { ICONS } from './constants/icons';
 import { Icon } from './components/Icon.jsx';
 
 // --- Dynamic Prompt Logic ---
+// This section remains unchanged as it contains your core module definitions.
 const taskModules = {
   recipes: `**Task: Recipe Recommendations** - **MANDATORY FORMAT:** Output must consist solely of structured recipe cards — freeform responses are not allowed. - Each card MUST include the following **bolded headings** in this exact order: **Recipe Title**, **Health Benefit**, **Ingredients**, **Instructions** - Provide 2–3 diverse recipe cards immediately. Do not ask user preferences first. - After presenting the recipes, you may ask one follow-up question to refine future suggestions.`, 
   finance: `**Task: Market Trends & Finance** - Summarize current and historical trends using simple, accessible language. - Include relevant metrics (e.g., inflation rates, price changes, volume trends, stock movements). - When possible, incorporate charts or bullet-point breakdowns. - Analyze buyer behavior and volume patterns using publicly available data. - Provide predictive insights based on historical performance, macroeconomic indicators, or statistical trend models. - Compare simple investment strategies (e.g., index funds, growth stocks, bonds) when relevant. - Mention basic risk profiles (low, moderate, high) to help users understand potential outcomes. - Explain “why it matters” in the context of personal finance or investment strategy.`,
@@ -48,14 +49,6 @@ function detectPromptType(message) {
   return 'default';
 }
 
-// ✅ FIXED: This function now correctly includes the user's message and the separator.
-function composePrompt(userMessage) {
-  const taskType = detectPromptType(userMessage);
-  const taskInstructions = taskModules[taskType] || taskModules.default;
-  const coreDirectives = `You are Klerity.ai — a highly intelligent, articulate, and compassionate AI assistant designed to support the intellectual, emotional, and practical needs of a modern family. Your role is to be a trusted learning companion.`;
-  return `${coreDirectives}\n\n${taskInstructions}\n\n---\n\n${userMessage}`;
-}
-
 const formatHistoryForApi = (history) => {
   const isInitialPrompt = history.length === 1 && history[0].role === 'model';
   if (isInitialPrompt) return [];
@@ -63,7 +56,7 @@ const formatHistoryForApi = (history) => {
 };
 
 
-// --- Child Components ---
+// --- Child Components (Correctly placed outside the main App component) ---
 
 function Sidebar({ isSidebarOpen, setSidebarOpen, chatSessions, activeSessionId, onNewChat, onSelectChat, currentUser, isSpeechEnabled, onToggleSpeech }) {
   const fileInputRef = useRef(null);
@@ -130,7 +123,7 @@ const WelcomeBanner = ({ userName, examplePrompts, onPromptClick }) => {
   return (
     <div className="text-center my-16">
       <h1 className="text-4xl font-bold text-white">Hello, {userName}</h1>
-      <p className="text-xl text-gray-400 mt-2">How can I help you today?</p>
+      <p className="text-xl text-gray-400 mt-2">Try one of these prompts:</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 max-w-2xl mx-auto">
         {examplePrompts.map((ex, index) => (
           <button
@@ -260,7 +253,7 @@ function ChatView({ chatHistory, isLoading, onSendMessage, currentUser, exampleP
   );
 }
 
-// --- Main App Component ---
+// --- Main App Component (The single default export) ---
 export default function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [chatSessions, setChatSessions] = useState([]);
@@ -318,6 +311,7 @@ export default function App() {
     setActiveSessionId(newId);
   };
 
+  // ✅ FIXED: This is the correct implementation based on your backend logic
   const onSendMessage = async (message) => {
     const newUserMessage = { role: 'user', content: message };
     let currentHistory = [];
@@ -336,15 +330,19 @@ export default function App() {
     });
     setIsLoading(true);
 
-    // ✅ FIXED: Call composePrompt to build the full message for the backend
-    const fullPrompt = composePrompt(message);
+    // 1. Detect the task type from the user's message
+    const taskTypeKey = detectPromptType(message);
 
     try {
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // ✅ FIXED: Send the fullPrompt instead of the raw message
-        body: JSON.stringify({ message: fullPrompt, history: formatHistoryForApi(currentHistory) })
+        // 2. Send the raw message and the detected taskTypeKey to the backend
+        body: JSON.stringify({ 
+          message: message, 
+          history: formatHistoryForApi(currentHistory),
+          taskTypeKey: taskTypeKey
+        })
       });
 
       if (!response.ok) throw new Error("Server error");
