@@ -13,10 +13,7 @@ export const handleChat = async (req, res) => {
       return res.status(400).json({ error: 'Missing message in request.' });
     }
 
-    // --- 💡 NEW LOGIC: Separate System Instructions from User Message ---
-    // We split the prompt that the frontend created.
-    // The part BEFORE "---" is our system instructions.
-    // The part AFTER "---" is the actual user query.
+    // --- Separate System Instructions from User Message ---
     const promptParts = combinedMessage.split('\n\n---\n\n');
     let systemInstruction = '';
     let userMessage = '';
@@ -28,6 +25,20 @@ export const handleChat = async (req, res) => {
         // Fallback if the separator isn't found
         userMessage = combinedMessage;
     }
+    
+    // --- 💡 NEW LOGIC: Create a more forceful prompt ---
+    // This reinforces the system instructions for better compliance.
+    let finalMessage = userMessage; // Default message
+    
+    // Check if a specific task module was applied by looking for the "**Task:" marker
+    const hasSpecificInstructions = systemInstruction.toLowerCase().includes('**task:');
+
+    if (hasSpecificInstructions) {
+        // This new prompt explicitly tells the AI to follow the system rules for the user's request.
+        finalMessage = `Adhering strictly to the persona and rules defined in the system prompt, address the following user request. The formatting and structural requirements are non-negotiable.
+
+User Request: "${userMessage}"`;
+    }
     // --- End of New Logic ---
 
     // Optional: If using real-time search data for certain topics
@@ -36,23 +47,21 @@ export const handleChat = async (req, res) => {
       userMessage.toLowerCase().includes(k)
     );
 
-    // This variable will hold the final message sent to the AI
-    let finalMessage = userMessage; 
-
     if (needsSearch) {
       const searchResults = await performSearch(userMessage); // make sure this utility exists
-      finalMessage = `Use the following real-time info to answer the question.\n\n**Live Data:**\n${searchResults}\n\n**User's Query:** ${userMessage}`;
+      // We inject the search results but keep the forceful instructions.
+      finalMessage = `Use the following real-time info to answer the question.\n\n**Live Data:**\n${searchResults}\n\n**Instructions & User's Query:**\n${finalMessage}`;
     }
 
-    // --- 💡 UPDATED MODEL CALL: Include System Instruction ---
+    // --- UPDATED MODEL CALL: Include System Instruction ---
     const model = genAI.getGenerativeModel({ 
         model: "gemini-1.5-flash",
-        // This is the key change: we provide the instructions here.
+        // The system instruction still sets the overall persona and rules.
         systemInstruction: systemInstruction,
     });
 
     const chat = model.startChat({ history });
-    // Now we only send the user's clean message.
+    // Now we send the more direct, forceful message.
     const result = await chat.sendMessage(finalMessage); 
     const response = await result.response;
     const text = response.text();
