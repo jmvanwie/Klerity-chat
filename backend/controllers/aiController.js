@@ -57,7 +57,8 @@ export const handleChat = async (req, res) => {
         systemInstruction = promptParts[0];
         userMessage = promptParts[1];
     } else {
-        userMessage = combined.message;
+        // ✅ FIX: Changed 'combined.message' to 'combinedMessage'
+        userMessage = combinedMessage;
     }
     
     // --- Create a more forceful prompt with a one-shot example ---
