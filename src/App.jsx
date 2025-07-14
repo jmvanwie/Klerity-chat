@@ -1,64 +1,69 @@
-// 🔧 Updated App.js with Render-compatible backend call
+// Production App.js with Render-compatible backend call
 import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { collection, getDocs } from 'firebase/firestore';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Icon } from './components/Icon.jsx';
+import { db } from './firebase';
 import { ICONS } from './constants/icons';
-
-import { db } from './firebase'; // ✅ only use this for db
-import { collection, getDocs } from 'firebase/firestore';
+import { Icon } from './components/Icon.jsx';
 
 // --- Dynamic Prompt Logic ---
 const taskModules = {
-  recipes: `**Task: Recipe Recommendations** - **MANDATORY FORMAT:** Output must consist solely of structured recipe cards — freeform responses are not allowed. - Each card MUST include the following **bolded headings** in this exact order: **Recipe Title**, **Health Benefit**, **Ingredients**, **Instructions** - Provide 2–3 diverse recipe cards immediately. Do not ask user preferences first. - After presenting the recipes, you may ask one follow-up question to refine future suggestions.`, 
-  finance: `**Task: Market Trends & Finance** - Summarize current and historical trends using simple, accessible language. - Include relevant metrics (e.g., inflation rates, price changes, volume trends, stock movements). - When possible, incorporate charts or bullet-point breakdowns. - Analyze buyer behavior and volume patterns using publicly available data. - Provide predictive insights based on historical performance, macroeconomic indicators, or statistical trend models. - Compare simple investment strategies (e.g., index funds, growth stocks, bonds) when relevant. - Mention basic risk profiles (low, moderate, high) to help users understand potential outcomes. - Explain “why it matters” in the context of personal finance or investment strategy.`,
-  aerospace: `**Task: Rocket Science & Aerospace Mechanics** - Explain core aerospace concepts like thrust, lift, drag, gravity, orbital mechanics, and propulsion. - Use real missions (Apollo, Artemis, SpaceX, etc.) as examples. - Support visual explanations: diagrams, timelines, mission steps. - When relevant, tie in physics (Newton’s laws, fluid dynamics) and math (vectors, calculus). - Encourage questions and space-related curiosity!`,
-  computerscience: `**Task: Computer Science Theory** - Cover foundational topics like data structures, algorithms, operating systems, networking, databases, and computational thinking. - Use simplified analogies and diagrams where possible. - Offer real-world applications and "why it matters" insights. - For algorithms, break down complexity (Big O notation) and include pseudocode.`,
-  homework: `**Task: Homework Help** - Break down explanations into simple, step-by-step reasoning. - Tailor depth based on grade level if provided (elementary, middle, high school). - Use analogies or examples to support understanding. - Offer multiple ways to explain difficult topics if possible.`,
-  news: `**Task: Current Events & News Summaries** - Synthesize information from your internal knowledge base, which includes a vast corpus of web data, to provide a summary of recent events. - Present findings from multiple conceptual sources (e.g., "Recent news reports indicate...", "Local forums have discussed...", "Official statements suggest..."). - Provide specific details like dates, locations, and descriptions when available in your training data. - Maintain a neutral, journalistic tone.`,
-  science: `**Task: Science & STEM Explanations** - Cover topics from physics, biology, chemistry, earth science, and astronomy. - Adapt depth based on audience (child, teen, adult, expert). - Use analogies, real-world examples, and simplified diagrams when possible. - Follow a clear, logical structure: Definition → Principle → Example → Application. - Encourage curiosity and cross-disciplinary connections (e.g., how chemistry affects cooking).`,
-  philosophy: `**Task: Philosophy & Big Questions** - Answer questions on ethics, metaphysics, epistemology, and ancient-modern philosophy. - Reference key figures (e.g., Socrates, Kant, Laozi) and core concepts (e.g., dualism, utilitarianism). - Present multiple viewpoints without bias. - Use clear language to make abstract ideas accessible. - Offer optional reflection or thought experiments to spark curiosity.`,
-  history: `**Task: History & Mythology** - Summarize key historical events, people, and timelines from any civilization. - Explain myths and their cultural significance (e.g., Greek, Norse, Egyptian). - Include maps, family trees, or timelines when relevant. - Avoid presentism; explain within historical context.`,
-  tech: `**Task: Technology & How Things Work** - Explain current technologies (e.g., AI, blockchain, rockets, internet) simply. - For mechanical topics (e.g., engines, aircraft), explain via diagrams and physics principles. - Compare similar tools or platforms when asked (e.g., ChatGPT vs. Alexa).`,
-  life: `**Task: Life Guidance & Emotional Support** - Provide kind, supportive, and thoughtful responses to life questions. - Offer insight and reflection without replacing licensed mental health advice. - Encourage healthy habits, communication, and growth. - Avoid judgmental language; focus on empowerment and empathy.`,
-  literature: `**Task: Literature & Reading Comprehension** - Analyze themes, characters, and symbolism across fiction and nonfiction. - Offer summaries, discussion questions, and author context. - Adjust language and complexity for grade level or age. - Recommend books based on interest, age, or reading level.`,
-  math: `**Task: Mathematics Help** - Support topics from arithmetic through calculus and statistics. - Break solutions down step-by-step using logic and patterns. - Offer visual approaches and formulas when applicable. - Clarify misconceptions with multiple methods of explanation.`,
-  language: `**Task: Language Learning & Grammar** - Provide vocabulary, grammar, and pronunciation help. - Include examples in both English and requested language. - Support basic conversation phrases and cultural notes. - Adjust tone and formality based on use-case (e.g., travel vs. academic).`,
-  mythology: `**Task: World Mythologies** - Explain gods, legends, creatures, and rituals. - Highlight symbolic meaning and cross-cultural similarities. - Present myths as narratives with reflection points or morals.`,
-  meta: `**Task: App-Specific or Self-Referential Questions** - Explain what Klerity.ai can do. - Offer examples of helpful queries. - Set boundaries gently (e.g., "I can’t access real-time GPS data, but...")`,
-  default: `**Task: General Curiosity or Open-Ended Requests** - Act as a knowledgeable companion. - Provide meaningful responses even when no specific module is detected. - Reference core capabilities such as science, finance, education, wellness, and family support. - Offer an engaging response first, then a follow-up to clarify or personalize.`
+  recipes: `**Task: Recipe Recommendations** - **MANDATORY FORMAT:** Output must consist solely of structured recipe cards — freeform responses are not allowed. - Each card MUST include the following **bolded headings** in this exact order: **Recipe Title**, **Health Benefit**, **Ingredients**, **Instructions** - Provide 2–3 diverse recipe cards immediately. Do not ask user preferences first. - After presenting the recipes, you may ask one follow-up question to refine future suggestions.`, 
+  finance: `**Task: Market Trends & Finance** - Summarize current and historical trends using simple, accessible language. - Include relevant metrics (e.g., inflation rates, price changes, volume trends, stock movements). - When possible, incorporate charts or bullet-point breakdowns. - Analyze buyer behavior and volume patterns using publicly available data. - Provide predictive insights based on historical performance, macroeconomic indicators, or statistical trend models. - Compare simple investment strategies (e.g., index funds, growth stocks, bonds) when relevant. - Mention basic risk profiles (low, moderate, high) to help users understand potential outcomes. - Explain “why it matters” in the context of personal finance or investment strategy.`,
+  aerospace: `**Task: Rocket Science & Aerospace Mechanics** - Explain core aerospace concepts like thrust, lift, drag, gravity, orbital mechanics, and propulsion. - Use real missions (Apollo, Artemis, SpaceX, etc.) as examples. - Support visual explanations: diagrams, timelines, mission steps. - When relevant, tie in physics (Newton’s laws, fluid dynamics) and math (vectors, calculus). - Encourage questions and space-related curiosity!`,
+  computerscience: `**Task: Computer Science Theory** - Cover foundational topics like data structures, algorithms, operating systems, networking, databases, and computational thinking. - Use simplified analogies and diagrams where possible. - Offer real-world applications and "why it matters" insights. - For algorithms, break down complexity (Big O notation) and include pseudocode.`,
+  homework: `**Task: Homework Help** - Break down explanations into simple, step-by-step reasoning. - Tailor depth based on grade level if provided (elementary, middle, high school). - Use analogies or examples to support understanding. - Offer multiple ways to explain difficult topics if possible.`,
+  news: `**Task: Current Events & News Summaries** - Synthesize information from your internal knowledge base, which includes a vast corpus of web data, to provide a summary of recent events. - Present findings from multiple conceptual sources (e.g., "Recent news reports indicate...", "Local forums have discussed...", "Official statements suggest..."). - Provide specific details like dates, locations, and descriptions when available in your training data. - Maintain a neutral, journalistic tone.`,
+  science: `**Task: Science & STEM Explanations** - Cover topics from physics, biology, chemistry, earth science, and astronomy. - Adapt depth based on audience (child, teen, adult, expert). - Use analogies, real-world examples, and simplified diagrams when possible. - Follow a clear, logical structure: Definition → Principle → Example → Application. - Encourage curiosity and cross-disciplinary connections (e.g., how chemistry affects cooking).`,
+  philosophy: `**Task: Philosophy & Big Questions** - Answer questions on ethics, metaphysics, epistemology, and ancient-modern philosophy. - Reference key figures (e.g., Socrates, Kant, Laozi) and core concepts (e.g., dualism, utilitarianism). - Present multiple viewpoints without bias. - Use clear language to make abstract ideas accessible. - Offer optional reflection or thought experiments to spark curiosity.`,
+  history: `**Task: History & Mythology** - Summarize key historical events, people, and timelines from any civilization. - Explain myths and their cultural significance (e.g., Greek, Norse, Egyptian). - Include maps, family trees, or timelines when relevant. - Avoid presentism; explain within historical context.`,
+  tech: `**Task: Technology & How Things Work** - Explain current technologies (e.g., AI, blockchain, rockets, internet) simply. - For mechanical topics (e.g., engines, aircraft), explain via diagrams and physics principles. - Compare similar tools or platforms when asked (e.g., ChatGPT vs. Alexa).`,
+  life: `**Task: Life Guidance & Emotional Support** - Provide kind, supportive, and thoughtful responses to life questions. - Offer insight and reflection without replacing licensed mental health advice. - Encourage healthy habits, communication, and growth. - Avoid judgmental language; focus on empowerment and empathy.`,
+  literature: `**Task: Literature & Reading Comprehension** - Analyze themes, characters, and symbolism across fiction and nonfiction. - Offer summaries, discussion questions, and author context. - Adjust language and complexity for grade level or age. - Recommend books based on interest, age, or reading level.`,
+  math: `**Task: Mathematics Help** - Support topics from arithmetic through calculus and statistics. - Break solutions down step-by-step using logic and patterns. - Offer visual approaches and formulas when applicable. - Clarify misconceptions with multiple methods of explanation.`,
+  language: `**Task: Language Learning & Grammar** - Provide vocabulary, grammar, and pronunciation help. - Include examples in both English and requested language. - Support basic conversation phrases and cultural notes. - Adjust tone and formality based on use-case (e.g., travel vs. academic).`,
+  mythology: `**Task: World Mythologies** - Explain gods, legends, creatures, and rituals. - Highlight symbolic meaning and cross-cultural similarities. - Present myths as narratives with reflection points or morals.`,
+  meta: `**Task: App-Specific or Self-Referential Questions** - Explain what Klerity.ai can do. - Offer examples of helpful queries. - Set boundaries gently (e.g., "I can’t access real-time GPS data, but...")`,
+  default: `**Task: General Curiosity or Open-Ended Requests** - Act as a knowledgeable companion. - Provide meaningful responses even when no specific module is detected. - Reference core capabilities such as science, finance, education, wellness, and family support. - Offer an engaging response first, then a follow-up to clarify or personalize.`
 };
+
 function detectPromptType(message) {
-  const lower = message.toLowerCase();
-  if (lower.includes("recipe") || lower.includes("dinner") || lower.includes("meal")) return 'recipes';
-  if (lower.includes("stock") || lower.includes("market") || lower.includes("inflation")) return 'finance';
-  if (lower.includes("homework")) return 'homework';
-  if (lower.includes("news") || lower.includes("reports") || lower.includes("uap") || lower.includes("sightings")) return 'news';
-  if (lower.includes("physics") || lower.includes("science") || lower.includes("atom") || lower.includes("earth")) return 'science';
-  if (lower.includes("myth") || lower.includes("greek") || lower.includes("god") || lower.includes("legend")) return 'history';
-  if (lower.includes("why do we") || lower.includes("ethics") || lower.includes("purpose of life")) return 'philosophy';
-  if (lower.includes("how does a plane fly") || lower.includes("tech") || lower.includes("mechanical")) return 'tech';
-  if (lower.includes("i feel") || lower.includes("life advice") || lower.includes("how do i handle")) return 'life';
-  if (lower.includes("book") || lower.includes("poem") || lower.includes("read")) return 'literature';
-  if (lower.includes("grammar") || lower.includes("translate") || lower.includes("how to say")) return 'language';
-  if (lower.includes("math") || lower.includes("algebra") || lower.includes("geometry") || lower.includes("equation")) return 'math';
-  if (lower.includes("myth") || lower.includes("legend") || lower.includes("folklore")) return 'mythology';
-  if (lower.includes("what can you do") || lower.includes("who are you")) return 'meta';
-  return 'default';
+  const lower = message.toLowerCase();
+  if (lower.includes("recipe") || lower.includes("dinner") || lower.includes("meal")) return 'recipes';
+  if (lower.includes("stock") || lower.includes("market") || lower.includes("inflation")) return 'finance';
+  if (lower.includes("homework")) return 'homework';
+  if (lower.includes("news") || lower.includes("reports") || lower.includes("uap") || lower.includes("sightings")) return 'news';
+  if (lower.includes("physics") || lower.includes("science") || lower.includes("atom") || lower.includes("earth")) return 'science';
+  if (lower.includes("myth") || lower.includes("greek") || lower.includes("god")) return 'history';
+  if (lower.includes("why do we") || lower.includes("ethics") || lower.includes("purpose of life")) return 'philosophy';
+  if (lower.includes("how does a plane fly") || lower.includes("tech") || lower.includes("mechanical")) return 'tech';
+  if (lower.includes("i feel") || lower.includes("life advice") || lower.includes("how do i handle")) return 'life';
+  if (lower.includes("book") || lower.includes("poem") || lower.includes("read")) return 'literature';
+  if (lower.includes("grammar") || lower.includes("translate") || lower.includes("how to say")) return 'language';
+  if (lower.includes("math") || lower.includes("algebra") || lower.includes("geometry") || lower.includes("equation")) return 'math';
+  if (lower.includes("myth") || lower.includes("legend") || lower.includes("folklore")) return 'mythology';
+  if (lower.includes("what can you do") || lower.includes("who are you")) return 'meta';
+  return 'default';
 }
+
+// ✅ FIXED: This function now correctly includes the user's message and the separator.
 function composePrompt(userMessage) {
-  const taskType = detectPromptType(userMessage);
-  const taskInstructions = taskModules[taskType] || taskModules.default;
-  const coreDirectives = `You are Klerity.ai — a highly intelligent, articulate, and compassionate AI assistant designed to support the intellectual, emotional, and practical needs of a modern family. Your role is to be a trusted learning companion.`;
-  return `${coreDirectives}\n\n${taskInstructions}`;
+  const taskType = detectPromptType(userMessage);
+  const taskInstructions = taskModules[taskType] || taskModules.default;
+  const coreDirectives = `You are Klerity.ai — a highly intelligent, articulate, and compassionate AI assistant designed to support the intellectual, emotional, and practical needs of a modern family. Your role is to be a trusted learning companion.`;
+  return `${coreDirectives}\n\n${taskInstructions}\n\n---\n\n${userMessage}`;
 }
 
 const formatHistoryForApi = (history) => {
-  const isInitialPrompt = history.length === 1 && history[0].role === 'model';
-  if (isInitialPrompt) return [];
-  return history.map(msg => ({ role: msg.role, parts: [{ text: msg.content }] }));
+  const isInitialPrompt = history.length === 1 && history[0].role === 'model';
+  if (isInitialPrompt) return [];
+  return history.map(msg => ({ role: msg.role, parts: [{ text: msg.content }] }));
 };
+
+
+// --- Child Components ---
 
 function Sidebar({ isSidebarOpen, setSidebarOpen, chatSessions, activeSessionId, onNewChat, onSelectChat, currentUser, isSpeechEnabled, onToggleSpeech }) {
   const fileInputRef = useRef(null);
@@ -121,16 +126,20 @@ const MessageContent = ({ content }) => (
   </div>
 );
 
-const WelcomeBanner = ({ userName, onPromptClick }) => {
-  const prompts = ["Explain quantum computing in simple terms", "What are some healthy dinner recipes?", "Write a short story about a robot who discovers music", "Help me debug this Python code"];
+const WelcomeBanner = ({ userName, examplePrompts, onPromptClick }) => {
   return (
     <div className="text-center my-16">
       <h1 className="text-4xl font-bold text-white">Hello, {userName}</h1>
       <p className="text-xl text-gray-400 mt-2">How can I help you today?</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 max-w-2xl mx-auto">
-        {prompts.map((prompt, index) => (
-          <button key={index} onClick={() => onPromptClick(prompt)} className="bg-gray-700 hover:bg-gray-600 text-white text-left p-4 rounded-lg transition-colors">
-            {prompt}
+        {examplePrompts.map((ex, index) => (
+          <button
+            key={index}
+            onClick={() => onPromptClick(ex.prompt)}
+            className="bg-gray-700 hover:bg-gray-600 text-white text-left p-4 rounded-lg transition-colors"
+          >
+            <h3 className="text-lg font-semibold mb-1">{ex.prompt}</h3>
+            <p className="text-xs text-gray-400">Task: {ex.taskType}</p>
           </button>
         ))}
       </div>
@@ -146,7 +155,7 @@ const TypingIndicator = () => (
   </div>
 );
 
-function ChatView({ chatHistory, isLoading, onSendMessage, currentUser }) {
+function ChatView({ chatHistory, isLoading, onSendMessage, currentUser, examplePrompts }) {
   const [inputValue, setInputValue] = useState("");
   const [isListening, setIsListening] = useState(false);
   const chatEndRef = useRef(null);
@@ -197,28 +206,12 @@ function ChatView({ chatHistory, isLoading, onSendMessage, currentUser }) {
 
   const isNewChat = chatHistory.length === 1 && chatHistory[0].role === 'model';
 
-   useEffect(() => {
-  const testFirestore = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, "testCollection")); // 👈 Use your collection name
-      querySnapshot.forEach((doc) => {
-        console.log(`${doc.id} =>`, doc.data());
-      });
-      console.log("✅ Firestore read successful");
-    } catch (error) {
-      console.error("❌ Firestore read failed:", error);
-    }
-  };
-
-  testFirestore();
-}, []);
-
   return (
     <div className="flex-1 flex flex-col bg-gray-800 h-full">
       <main className="flex-grow overflow-y-auto p-4 md:p-8">
         <div className="max-w-3xl mx-auto">
           {isNewChat ? (
-            <WelcomeBanner userName={currentUser.name} onPromptClick={onSendMessage} />
+            <WelcomeBanner userName={currentUser.name} examplePrompts={examplePrompts} onPromptClick={onSendMessage} />
           ) : (
             chatHistory.map((message, index) => (
               <div key={index} className={`flex items-start gap-4 mb-8`}>
@@ -267,15 +260,32 @@ function ChatView({ chatHistory, isLoading, onSendMessage, currentUser }) {
   );
 }
 
+// --- Main App Component ---
 export default function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [chatSessions, setChatSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentUser, setCurrentUser] = useState({ name: "John", email: "john.vanwie@example.com" });
+  const [currentUser] = useState({ name: "John", email: "john.vanwie@example.com" });
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(false);
   const [voices, setVoices] = useState([]);
+  const [examplePrompts, setExamplePrompts] = useState([]);
 
+  // ✅ Fetch example prompts from Firestore on initial load
+  useEffect(() => {
+    const loadExamples = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "examplePrompts"));
+        const examples = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setExamplePrompts(examples);
+      } catch (error) {
+        console.error("❌ Error fetching example prompts:", error);
+      }
+    };
+    loadExamples();
+  }, []);
+
+  // Load speech synthesis voices
   useEffect(() => {
     const loadVoices = () => { setVoices(window.speechSynthesis.getVoices()); };
     window.speechSynthesis.onvoiceschanged = loadVoices;
@@ -292,6 +302,7 @@ export default function App() {
     window.speechSynthesis.speak(utterance);
   };
 
+  // Create the first chat session if none exist
   useEffect(() => {
     if (chatSessions.length === 0) {
       const firstId = uuidv4();
@@ -325,11 +336,15 @@ export default function App() {
     });
     setIsLoading(true);
 
+    // ✅ FIXED: Call composePrompt to build the full message for the backend
+    const fullPrompt = composePrompt(message);
+
     try {
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, history: formatHistoryForApi(currentHistory) })
+        // ✅ FIXED: Send the fullPrompt instead of the raw message
+        body: JSON.stringify({ message: fullPrompt, history: formatHistoryForApi(currentHistory) })
       });
 
       if (!response.ok) throw new Error("Server error");
@@ -340,7 +355,7 @@ export default function App() {
 
       setChatSessions(prevSessions => prevSessions.map(session =>
         session.id === activeSessionId
-          ? { ...session, history: [...session.history, modelResponse] }
+          ? { ...session, history: [...currentHistory, modelResponse] }
           : session
       ));
 
@@ -350,7 +365,7 @@ export default function App() {
       speak(errorResponse.content);
       setChatSessions(prevSessions => prevSessions.map(session =>
         session.id === activeSessionId
-          ? { ...session, history: [...session.history, errorResponse] }
+          ? { ...session, history: [...currentHistory, errorResponse] }
           : session
       ));
     } finally {
@@ -382,9 +397,9 @@ export default function App() {
           isLoading={isLoading}
           onSendMessage={onSendMessage}
           currentUser={currentUser}
+          examplePrompts={examplePrompts}
         />
       </div>
     </div>
   );
- 
 }
