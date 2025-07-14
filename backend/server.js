@@ -16,16 +16,16 @@ import chatRouter from './routes/chat.js';
 const app = express();
 const port = process.env.PORT || 3001;
 
+// ✅ Handle preflight
+app.options('*', cors());
+
 // ✅ CORS Setup
 app.use(cors({
-  origin: ['https://klerity-chat.web.app', 'https://klerity-chat.firebaseapp.com'],
+  origin: '*',
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type'],
   
 }));
-
-// ✅ Handle preflight
-app.options('*', cors());
 
 // ✅ Middleware
 app.use(express.json());
