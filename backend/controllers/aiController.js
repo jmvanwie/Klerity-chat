@@ -10,6 +10,10 @@ import { validateResponse } from '../utils/responseValidator.js';
 // No changes to initialization
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_KEY);
 
+const AUTHORIZED_USERS = [
+    'justin.vanwie@example.com',
+    // Add any other authorized email addresses here
+];
 // --- HELPER FUNCTION: Sleep for a specified duration ---
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
