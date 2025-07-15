@@ -4,7 +4,6 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // --- Import your new utility modules ---
 import { formatRules } from '../utils/formatRules.js';
 import { buildSystemPrompt } from '../utils/systemPromptBuilder.js';
-// ✅ FIX: Corrected the import path to be all lowercase to match the actual filename.
 import { buildFinalMessage } from '../utils/messagebuilder.js'; 
 import { validateResponse } from '../utils/responseValidator.js';
 
@@ -47,11 +46,12 @@ const callGenerativeModel = async (modelName, systemInstruction, history, finalM
 
 export const handleChat = async (req, res) => {
   try {
-    // ✅ Destructure the new taskTypeKey from the request body
-    const { history = [], message, taskTypeKey } = req.body;
+    // ✅ FIX: Make the controller more defensive against missing data from the frontend.
+    const { history = [], message } = req.body;
+    const taskTypeKey = req.body.taskTypeKey || 'default'; // Use 'default' if not provided.
 
-    if (!message || !taskTypeKey) {
-      return res.status(400).json({ error: 'Missing message or taskTypeKey in request.' });
+    if (!message) {
+      return res.status(400).json({ error: 'Missing message in request.' });
     }
 
     // --- NEW MODULAR LOGIC ---
