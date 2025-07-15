@@ -49,7 +49,7 @@ function detectPromptType(message) {
   return 'default';
 }
 
-cconst formatHistoryForApi = (history) => {
+const formatHistoryForApi = (history) => {
   const isInitialPrompt = history.length === 1 && history[0].role === 'model';
   if (isInitialPrompt) return [];
   return history.map(msg => ({ role: msg.role, parts: [{ text: msg.content }] }));
@@ -273,8 +273,8 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         // User is signed in.
+        console.log("✅ Firebase Auth: User is signed in.", user);
         // For this app, we'll just use a default name/email for display.
-        // In a real app, you might fetch this from a 'users' collection.
         setCurrentUser({ 
             uid: user.uid,
             name: "John", 
@@ -282,6 +282,7 @@ export default function App() {
         });
       } else {
         // User is signed out, so sign them in anonymously.
+        console.log("Firebase Auth: No user found, signing in anonymously...");
         try {
             await signInAnonymously(auth);
         } catch (error) {
@@ -368,16 +369,24 @@ export default function App() {
 
     const taskTypeKey = detectPromptType(message);
 
+    // --- 💡 AGGRESSIVE DIAGNOSTIC LOGGING ---
+    console.log("--- DEBUG: Preparing to send message ---");
+    console.log("CurrentUser State:", currentUser);
+    console.log("Task Type Key:", taskTypeKey);
+    const requestBody = { 
+      message: message, 
+      history: formatHistoryForApi(currentHistory),
+      taskTypeKey: taskTypeKey,
+      user: currentUser 
+    };
+    console.log("Request Body to be sent:", JSON.stringify(requestBody, null, 2));
+    // --- END LOGGING ---
+
     try {
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          message: message, 
-          history: formatHistoryForApi(currentHistory),
-          taskTypeKey: taskTypeKey,
-          user: currentUser 
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
