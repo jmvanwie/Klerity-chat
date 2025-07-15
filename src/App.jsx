@@ -333,16 +333,17 @@ export default function App() {
     const taskTypeKey = detectPromptType(message);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // 2. Send the raw message and the detected taskTypeKey to the backend
-        body: JSON.stringify({ 
-          message: message, 
-          history: formatHistoryForApi(currentHistory),
-          taskTypeKey: taskTypeKey
-        })
-      });
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        message: message, 
+        history: formatHistoryForApi(currentHistory),
+        taskTypeKey: taskTypeKey,
+        // ✅ ADD THIS LINE
+        user: currentUser 
+      })
+    });
 
       if (!response.ok) throw new Error("Server error");
 
