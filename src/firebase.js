@@ -1,4 +1,4 @@
-mport { initializeApp } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 // ✅ 1. Import the necessary auth functions
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
