@@ -9,7 +9,6 @@ import { ICONS } from './constants/icons';
 import { Icon } from './components/Icon.jsx';
 
 // --- Dynamic Prompt Logic ---
-// This section remains unchanged as it contains your core module definitions.
 const taskModules = {
   recipes: `**Task: Recipe Recommendations** - **MANDATORY FORMAT:** Output must consist solely of structured recipe cards — freeform responses are not allowed. - Each card MUST include the following **bolded headings** in this exact order: **Recipe Title**, **Health Benefit**, **Ingredients**, **Instructions** - Provide 2–3 diverse recipe cards immediately. Do not ask user preferences first. - After presenting the recipes, you may ask one follow-up question to refine future suggestions.`, 
   finance: `**Task: Market Trends & Finance** - Summarize current and historical trends using simple, accessible language. - Include relevant metrics (e.g., inflation rates, price changes, volume trends, stock movements). - When possible, incorporate charts or bullet-point breakdowns. - Analyze buyer behavior and volume patterns using publicly available data. - Provide predictive insights based on historical performance, macroeconomic indicators, or statistical trend models. - Compare simple investment strategies (e.g., index funds, growth stocks, bonds) when relevant. - Mention basic risk profiles (low, moderate, high) to help users understand potential outcomes. - Explain “why it matters” in the context of personal finance or investment strategy.`,
@@ -264,7 +263,7 @@ export default function App() {
   const [voices, setVoices] = useState([]);
   const [examplePrompts, setExamplePrompts] = useState([]);
 
-  // ✅ Fetch example prompts from Firestore on initial load
+  // Fetch example prompts from Firestore on initial load
   useEffect(() => {
     const loadExamples = async () => {
       try {
@@ -311,65 +310,66 @@ export default function App() {
     setActiveSessionId(newId);
   };
 
+  // ✅ FIXED: This is the correct implementation based on your backend logic
   const onSendMessage = async (message) => {
-  const newUserMessage = { role: 'user', content: message };
-  let currentHistory = [];
+    const newUserMessage = { role: 'user', content: message };
+    let currentHistory = [];
 
-  // This part that updates the UI is fine
-  setChatSessions(prevSessions => {
-    return prevSessions.map(session => {
-      if (session.id === activeSessionId) {
-        const isFirstUserMessage = session.history.filter(m => m.role === 'user').length === 0;
-        const newHistory = isFirstUserMessage ? [newUserMessage] : [...session.history, newUserMessage];
-        const newTitle = isFirstUserMessage ? message.substring(0, 30) + (message.length > 30 ? "..." : "") : session.title;
-        currentHistory = newHistory;
-        return { ...session, title: newTitle, history: newHistory };
-      }
-      return session;
+    setChatSessions(prevSessions => {
+      return prevSessions.map(session => {
+        if (session.id === activeSessionId) {
+          const isFirstUserMessage = session.history.filter(m => m.role === 'user').length === 0;
+          const newHistory = isFirstUserMessage ? [newUserMessage] : [...session.history, newUserMessage];
+          const newTitle = isFirstUserMessage ? message.substring(0, 30) + (message.length > 30 ? "..." : "") : session.title;
+          currentHistory = newHistory;
+          return { ...session, title: newTitle, history: newHistory };
+        }
+        return session;
+      });
     });
-  });
-  setIsLoading(true);
+    setIsLoading(true);
 
-  // ✅ 1. Detect the task type from the user's message
-  const taskTypeKey = detectPromptType(message);
+    // 1. Detect the task type from the user's message
+    const taskTypeKey = detectPromptType(message);
 
-  try {
-    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      // ✅ 2. Send the raw message and the detected taskTypeKey to the backend
-      body: JSON.stringify({ 
-        message: message, 
-        history: formatHistoryForApi(currentHistory),
-        taskTypeKey: taskTypeKey
-      })
-    });
+    try {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // 2. Send the raw message and the detected taskTypeKey to the backend
+        body: JSON.stringify({ 
+          message: message, 
+          history: formatHistoryForApi(currentHistory),
+          taskTypeKey: taskTypeKey
+        })
+      });
 
-    if (!response.ok) throw new Error("Server error");
+      if (!response.ok) throw new Error("Server error");
 
-    const data = await response.json();
-    const modelResponse = { role: 'model', content: data.response };
-    speak(modelResponse.content);
+      const data = await response.json();
+      const modelResponse = { role: 'model', content: data.response };
+      speak(modelResponse.content);
 
-    setChatSessions(prevSessions => prevSessions.map(session =>
-      session.id === activeSessionId
-        ? { ...session, history: [...currentHistory, modelResponse] }
-        : session
-    ));
+      setChatSessions(prevSessions => prevSessions.map(session =>
+        session.id === activeSessionId
+          ? { ...session, history: [...currentHistory, modelResponse] }
+          : session
+      ));
 
-  } catch (error) {
-    console.error("Error calling backend:", error);
-    const errorResponse = { role: 'model', content: "Sorry, there was an issue connecting to the AI. Please try again." };
-    speak(errorResponse.content);
-    setChatSessions(prevSessions => prevSessions.map(session =>
-      session.id === activeSessionId
-        ? { ...session, history: [...currentHistory, errorResponse] }
-        : session
-    ));
-  } finally {
-    setIsLoading(false);
-  }
-};
+    } catch (error) {
+      console.error("Error calling backend:", error);
+      const errorResponse = { role: 'model', content: "Sorry, there was an issue connecting to the AI. Please try again." };
+      speak(errorResponse.content);
+      setChatSessions(prevSessions => prevSessions.map(session =>
+        session.id === activeSessionId
+          ? { ...session, history: [...currentHistory, errorResponse] }
+          : session
+      ));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const activeChat = chatSessions.find(session => session.id === activeSessionId);
 
   return (
