@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+mport { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 // ✅ 1. Import the necessary auth functions
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
@@ -19,7 +19,7 @@ export const db = getFirestore(app);
 export const auth = getAuth(app);
 
 // ✅ 3. Automatically sign in users anonymously
-// This ensures that every user has a valid session.
+// This ensures that every user has a valid session before any data is read.
 onAuthStateChanged(auth, (user) => {
   if (!user) {
     signInAnonymously(auth).catch((error) => {
