@@ -1,10 +1,11 @@
-// Production App.js with Render-compatible backend call
+// ✅ App.jsx (Refactored with correct Firebase Auth flow)
 import React, { useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { collection, getDocs } from 'firebase/firestore';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { db } from './firebase';
+import { db, auth } from './firebase'; // Import auth from firebase.js
+import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { ICONS } from './constants/icons';
 import { Icon } from './components/Icon.jsx';
 
@@ -48,14 +49,13 @@ function detectPromptType(message) {
   return 'default';
 }
 
-const formatHistoryForApi = (history) => {
+cconst formatHistoryForApi = (history) => {
   const isInitialPrompt = history.length === 1 && history[0].role === 'model';
   if (isInitialPrompt) return [];
   return history.map(msg => ({ role: msg.role, parts: [{ text: msg.content }] }));
 };
 
-
-// --- Child Components (Correctly placed outside the main App component) ---
+// --- Child Components (No changes needed here) ---
 
 function Sidebar({ isSidebarOpen, setSidebarOpen, chatSessions, activeSessionId, onNewChat, onSelectChat, currentUser, isSpeechEnabled, onToggleSpeech }) {
   const fileInputRef = useRef(null);
@@ -100,13 +100,15 @@ function Sidebar({ isSidebarOpen, setSidebarOpen, chatSessions, activeSessionId,
             <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isSpeechEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
           </button>
         </div>
-        <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-800 cursor-pointer">
-          <Icon path={ICONS.user} className="w-8 h-8 text-gray-400" />
-          <div>
-            <p className="font-semibold text-sm">{currentUser.name}</p>
-            <p className="text-xs text-gray-400">{currentUser.email}</p>
-          </div>
-        </div>
+        {currentUser && (
+            <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-800 cursor-pointer">
+                <Icon path={ICONS.user} className="w-8 h-8 text-gray-400" />
+                <div>
+                    <p className="font-semibold text-sm">{currentUser.name}</p>
+                    <p className="text-xs text-gray-400">{currentUser.email}</p>
+                </div>
+            </div>
+        )}
       </div>
     </div>
   );
@@ -196,19 +198,19 @@ function ChatView({ chatHistory, isLoading, onSendMessage, currentUser, exampleP
     }
   };
 
-  const isNewChat = chatHistory.length === 1 && chatHistory[0].role === 'model';
+  const isNewChat = !chatHistory || chatHistory.length === 0 || (chatHistory.length === 1 && chatHistory[0].role === 'model');
 
   return (
     <div className="flex-1 flex flex-col bg-gray-800 h-full">
       <main className="flex-grow overflow-y-auto p-4 md:p-8">
         <div className="max-w-3xl mx-auto">
           {isNewChat ? (
-            <WelcomeBanner userName={currentUser.name} examplePrompts={examplePrompts} onPromptClick={onSendMessage} />
+            <WelcomeBanner userName={currentUser?.name || 'there'} examplePrompts={examplePrompts} onPromptClick={onSendMessage} />
           ) : (
             chatHistory.map((message, index) => (
               <div key={index} className={`flex items-start gap-4 mb-8`}>
                 {message.role === 'user' ? (
-                  <div className="w-8 h-8 flex-shrink-0 bg-blue-600 rounded-full flex items-center justify-center font-bold text-white">{currentUser.name.charAt(0)}</div>
+                  <div className="w-8 h-8 flex-shrink-0 bg-blue-600 rounded-full flex items-center justify-center font-bold text-white">{currentUser?.name?.charAt(0) || 'U'}</div>
                 ) : (
                   <img src="/Klerity-logo-2.svg" alt="klerity.ai response logo" className="w-8 h-8 rounded-full" />
                 )}
@@ -252,30 +254,61 @@ function ChatView({ chatHistory, isLoading, onSendMessage, currentUser, exampleP
   );
 }
 
-// --- Main App Component (The single default export) ---
+// --- Main App Component ---
 export default function App() {
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [chatSessions, setChatSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentUser] = useState({ name: "John", email: "john.vanwie@example.com" });
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(false);
   const [voices, setVoices] = useState([]);
   const [examplePrompts, setExamplePrompts] = useState([]);
 
-  // Fetch example prompts from Firestore on initial load
+  // ✅ NEW: State for the current user and auth status
+  const [authReady, setAuthReady] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // ✅ NEW: This effect handles all authentication logic.
   useEffect(() => {
-    const loadExamples = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "examplePrompts"));
-        const examples = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setExamplePrompts(examples);
-      } catch (error) {
-        console.error("❌ Error fetching example prompts:", error);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // User is signed in.
+        // For this app, we'll just use a default name/email for display.
+        // In a real app, you might fetch this from a 'users' collection.
+        setCurrentUser({ 
+            uid: user.uid,
+            name: "John", 
+            email: "john.vanwie@example.com" 
+        });
+      } else {
+        // User is signed out, so sign them in anonymously.
+        try {
+            await signInAnonymously(auth);
+        } catch (error) {
+            console.error("Anonymous sign-in failed:", error);
+        }
       }
-    };
-    loadExamples();
+      setAuthReady(true); // Auth process is complete.
+    });
+    return () => unsubscribe(); // Cleanup subscription on unmount
   }, []);
+
+  // ✅ NEW: This effect fetches public data only AFTER auth is ready.
+  useEffect(() => {
+    if (authReady) {
+      const loadExamples = async () => {
+        try {
+          const querySnapshot = await getDocs(collection(db, "examplePrompts"));
+          const examples = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setExamplePrompts(examples);
+          console.log("✅ Successfully fetched example prompts.");
+        } catch (error) {
+          console.error("❌ Firestore read failed:", error);
+        }
+      };
+      loadExamples();
+    }
+  }, [authReady]); // <-- Depends on authReady
 
   // Load speech synthesis voices
   useEffect(() => {
@@ -283,6 +316,15 @@ export default function App() {
     window.speechSynthesis.onvoiceschanged = loadVoices;
     loadVoices();
   }, []);
+
+  // Create the first chat session if none exist
+  useEffect(() => {
+    if (authReady && chatSessions.length === 0) {
+      const firstId = uuidv4();
+      setChatSessions([{ id: firstId, title: "New Chat", history: [] }]);
+      setActiveSessionId(firstId);
+    }
+  }, [authReady, chatSessions.length]);
 
   const speak = (text) => {
     if (!isSpeechEnabled || !window.speechSynthesis) return;
@@ -294,32 +336,27 @@ export default function App() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Create the first chat session if none exist
-  useEffect(() => {
-    if (chatSessions.length === 0) {
-      const firstId = uuidv4();
-      setChatSessions([{ id: firstId, title: "New Chat", history: [{ role: 'model', content: 'This is an initial message to trigger the banner.' }] }]);
-      setActiveSessionId(firstId);
-    }
-  }, [chatSessions.length]);
-
   const handleNewChat = () => {
     const newId = uuidv4();
-    const newSession = { id: newId, title: "New Chat", history: [{ role: 'model', content: 'This is an initial message to trigger the banner.' }] };
+    const newSession = { id: newId, title: "New Chat", history: [] };
     setChatSessions(prev => [...prev, newSession]);
     setActiveSessionId(newId);
   };
 
-  // ✅ FIXED: This is the correct implementation based on your backend logic
   const onSendMessage = async (message) => {
+    if (!currentUser) {
+        console.error("Cannot send message, user not authenticated.");
+        return;
+    }
+
     const newUserMessage = { role: 'user', content: message };
     let currentHistory = [];
 
     setChatSessions(prevSessions => {
       return prevSessions.map(session => {
         if (session.id === activeSessionId) {
-          const isFirstUserMessage = session.history.filter(m => m.role === 'user').length === 0;
-          const newHistory = isFirstUserMessage ? [newUserMessage] : [...session.history, newUserMessage];
+          const isFirstUserMessage = !session.history || session.history.length === 0;
+          const newHistory = [...(session.history || []), newUserMessage];
           const newTitle = isFirstUserMessage ? message.substring(0, 30) + (message.length > 30 ? "..." : "") : session.title;
           currentHistory = newHistory;
           return { ...session, title: newTitle, history: newHistory };
@@ -329,22 +366,24 @@ export default function App() {
     });
     setIsLoading(true);
 
-    // 1. Detect the task type from the user's message
     const taskTypeKey = detectPromptType(message);
 
     try {
-    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-      message: message, 
-      history: formatHistoryForApi(currentHistory),
-      taskTypeKey: taskTypeKey,
-      user: currentUser // ✅ This line must be added
-    })
-    });
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          message: message, 
+          history: formatHistoryForApi(currentHistory),
+          taskTypeKey: taskTypeKey,
+          user: currentUser 
+        })
+      });
 
-      if (!response.ok) throw new Error("Server error");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Server error");
+      }
 
       const data = await response.json();
       const modelResponse = { role: 'model', content: data.response };
@@ -358,7 +397,7 @@ export default function App() {
 
     } catch (error) {
       console.error("Error calling backend:", error);
-      const errorResponse = { role: 'model', content: "Sorry, there was an issue connecting to the AI. Please try again." };
+      const errorResponse = { role: 'model', content: `Sorry, there was an issue connecting to the AI. (${error.message})` };
       speak(errorResponse.content);
       setChatSessions(prevSessions => prevSessions.map(session =>
         session.id === activeSessionId
@@ -371,6 +410,15 @@ export default function App() {
   };
 
   const activeChat = chatSessions.find(session => session.id === activeSessionId);
+
+  // Don't render anything until Firebase Auth is ready
+  if (!authReady) {
+      return (
+          <div className="h-screen w-screen bg-gray-800 flex items-center justify-center">
+              <TypingIndicator />
+          </div>
+      );
+  }
 
   return (
     <div className="h-screen w-screen bg-gray-800 font-sans flex overflow-hidden">
