@@ -368,19 +368,13 @@ export default function App() {
     setIsLoading(true);
 
     const taskTypeKey = detectPromptType(message);
-
-    // --- 💡 AGGRESSIVE DIAGNOSTIC LOGGING ---
-    console.log("--- DEBUG: Preparing to send message ---");
-    console.log("CurrentUser State:", currentUser);
-    console.log("Task Type Key:", taskTypeKey);
+    
     const requestBody = { 
       message: message, 
       history: formatHistoryForApi(currentHistory),
       taskTypeKey: taskTypeKey,
       user: currentUser 
     };
-    console.log("Request Body to be sent:", JSON.stringify(requestBody, null, 2));
-    // --- END LOGGING ---
 
     try {
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat`, {
