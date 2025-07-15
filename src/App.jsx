@@ -311,66 +311,65 @@ export default function App() {
     setActiveSessionId(newId);
   };
 
-  // ✅ FIXED: This is the correct implementation based on your backend logic
   const onSendMessage = async (message) => {
-    const newUserMessage = { role: 'user', content: message };
-    let currentHistory = [];
+  const newUserMessage = { role: 'user', content: message };
+  let currentHistory = [];
 
-    setChatSessions(prevSessions => {
-      return prevSessions.map(session => {
-        if (session.id === activeSessionId) {
-          const isFirstUserMessage = session.history.filter(m => m.role === 'user').length === 0;
-          const newHistory = isFirstUserMessage ? [newUserMessage] : [...session.history, newUserMessage];
-          const newTitle = isFirstUserMessage ? message.substring(0, 30) + (message.length > 30 ? "..." : "") : session.title;
-          currentHistory = newHistory;
-          return { ...session, title: newTitle, history: newHistory };
-        }
-        return session;
-      });
+  // This part that updates the UI is fine
+  setChatSessions(prevSessions => {
+    return prevSessions.map(session => {
+      if (session.id === activeSessionId) {
+        const isFirstUserMessage = session.history.filter(m => m.role === 'user').length === 0;
+        const newHistory = isFirstUserMessage ? [newUserMessage] : [...session.history, newUserMessage];
+        const newTitle = isFirstUserMessage ? message.substring(0, 30) + (message.length > 30 ? "..." : "") : session.title;
+        currentHistory = newHistory;
+        return { ...session, title: newTitle, history: newHistory };
+      }
+      return session;
     });
-    setIsLoading(true);
+  });
+  setIsLoading(true);
 
-    // 1. Detect the task type from the user's message
-    const taskTypeKey = detectPromptType(message);
+  // ✅ 1. Detect the task type from the user's message
+  const taskTypeKey = detectPromptType(message);
 
-    try {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        // 2. Send the raw message and the detected taskTypeKey to the backend
-        body: JSON.stringify({ 
-          message: message, 
-          history: formatHistoryForApi(currentHistory),
-          taskTypeKey: taskTypeKey
-        })
-      });
+  try {
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      // ✅ 2. Send the raw message and the detected taskTypeKey to the backend
+      body: JSON.stringify({ 
+        message: message, 
+        history: formatHistoryForApi(currentHistory),
+        taskTypeKey: taskTypeKey
+      })
+    });
 
-      if (!response.ok) throw new Error("Server error");
+    if (!response.ok) throw new Error("Server error");
 
-      const data = await response.json();
-      const modelResponse = { role: 'model', content: data.response };
-      speak(modelResponse.content);
+    const data = await response.json();
+    const modelResponse = { role: 'model', content: data.response };
+    speak(modelResponse.content);
 
-      setChatSessions(prevSessions => prevSessions.map(session =>
-        session.id === activeSessionId
-          ? { ...session, history: [...currentHistory, modelResponse] }
-          : session
-      ));
+    setChatSessions(prevSessions => prevSessions.map(session =>
+      session.id === activeSessionId
+        ? { ...session, history: [...currentHistory, modelResponse] }
+        : session
+    ));
 
-    } catch (error) {
-      console.error("Error calling backend:", error);
-      const errorResponse = { role: 'model', content: "Sorry, there was an issue connecting to the AI. Please try again." };
-      speak(errorResponse.content);
-      setChatSessions(prevSessions => prevSessions.map(session =>
-        session.id === activeSessionId
-          ? { ...session, history: [...currentHistory, errorResponse] }
-          : session
-      ));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  } catch (error) {
+    console.error("Error calling backend:", error);
+    const errorResponse = { role: 'model', content: "Sorry, there was an issue connecting to the AI. Please try again." };
+    speak(errorResponse.content);
+    setChatSessions(prevSessions => prevSessions.map(session =>
+      session.id === activeSessionId
+        ? { ...session, history: [...currentHistory, errorResponse] }
+        : session
+    ));
+  } finally {
+    setIsLoading(false);
+  }
+};
   const activeChat = chatSessions.find(session => session.id === activeSessionId);
 
   return (
