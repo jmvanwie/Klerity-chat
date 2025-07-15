@@ -337,12 +337,11 @@ export default function App() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ 
-        message: message, 
-        history: formatHistoryForApi(currentHistory),
-        taskTypeKey: taskTypeKey,
-        // ✅ ADD THIS LINE
-        user: currentUser 
-      })
+      message: message, 
+      history: formatHistoryForApi(currentHistory),
+      taskTypeKey: taskTypeKey,
+      user: currentUser // ✅ This line must be added
+    })
     });
 
       if (!response.ok) throw new Error("Server error");

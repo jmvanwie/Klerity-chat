@@ -118,3 +118,4 @@ export const handleChat = async (req, res) => {
     res.status(500).json({ error: 'The AI service is currently unavailable. Please try again later.' });
   }
 };
+
